@@ -22,10 +22,10 @@ namespace SwqlStudio.ObjectExplorer
     {
         private static readonly Log log = new Log();
 
-        private Panel _searchPanel;
+        private FlowLayoutPanel _searchPanel;
         private FontSizeToolbar _fontToolbar;
 
-        private readonly SearchTextBox _treeSearch;
+        private readonly SearchTextBox _treeSearch = new SearchTextBox();
         private readonly TreeView _tree;
         private TreeView _treeData;
         private TreeNodeUtils.TreeNodeBindings _treeBindings = new TreeNodeUtils.TreeNodeBindings(); // default value, so this field is never null
@@ -45,27 +45,24 @@ namespace SwqlStudio.ObjectExplorer
         public event TreeViewEventHandler SelectionChanged;
         public ITabsFactory TabsFactory { get; set; }
 
+        private const float StandardDpi = 96f; // dots per inch, standard value for 100% scaling
+
         public ObjectExplorer()
         {
             InitializeComponent();
 
-            _searchPanel = new Panel
+            float scaleFactor = DeviceDpi / StandardDpi;
+
+            _fontToolbar = new FontSizeToolbar(scaleFactor);
+
+            _searchPanel = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
-                Height = 26,
-                Padding = new Padding(0, 0, 6, 0)
-            };
-
-            _treeSearch = new SearchTextBox
-            {
-                Dock = DockStyle.None, 
-                Height = 26
-            };
-
-            _fontToolbar = new FontSizeToolbar
-            {
-                Dock = DockStyle.Right,
-               // Margin = new Padding(0, 0, 4, 0)
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Padding = new Padding(0, 0, (int)(6 * scaleFactor), 0),
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false
             };
 
             _tree = new TreeView
@@ -79,6 +76,7 @@ namespace SwqlStudio.ObjectExplorer
             _treeSearch.TextChangedWithDebounce += (sender, e) => { SetFilter(((TextBox)sender).Text); };
             _treeSearch.CueText = "Search (Ctrl + \\)";
             _treeSearch.DebounceLimit = TimeSpan.FromMilliseconds(400);
+            _treeSearch.Width = (int)(200 * scaleFactor); // Set initial width
 
             _tableContextMenuItems = new Dictionary<string, ContextMenu>();
             _serverContextMenuItems = new Dictionary<string, ContextMenuStrip>();
@@ -87,22 +85,19 @@ namespace SwqlStudio.ObjectExplorer
             _verbContextMenu = new ContextMenu();
             _verbContextMenu.MenuItems.Add("Invoke...", (s, e) => OpenInvokeTab());
 
-            _fontToolbar.Target = this._tree;           
+            _fontToolbar.Target = this._tree;
 
             _searchPanel.Controls.Add(_treeSearch);
             _searchPanel.Controls.Add(_fontToolbar);
-            
+
+            _searchPanel.Resize += (sender, e) => ResizeSearchTextBox();
+            _searchPanel.Layout += (sender, e) => ResizeSearchTextBox();
+
             Controls.Add(_tree);
             Controls.Add(_searchPanel);
 
-            _searchPanel.Resize += (s, e) =>
-            {
-                _treeSearch.Left = 0;
-                _treeSearch.Width = _searchPanel.Width - _fontToolbar.Width;
-
-                // Vertical centering
-                _treeSearch.Top = (_searchPanel.Height - _treeSearch.Height) / 2;
-            };
+            // Perform initial resize after layout is complete
+            this.HandleCreated += (sender, e) => ResizeSearchTextBox();
         }
 
         private void InitializeTreeview()
@@ -151,6 +146,35 @@ namespace SwqlStudio.ObjectExplorer
         public void FocusSearch()
         {
             _treeSearch.Focus();
+        }
+
+        private void ResizeSearchTextBox()
+        {
+            if (_searchPanel == null || _treeSearch == null || _fontToolbar == null)
+                return;
+            
+            if (_searchPanel.ClientSize.Width <= 0)
+                return;
+            
+            if (!_searchPanel.IsHandleCreated)
+                return;
+            
+            _searchPanel.BeginInvoke(new Action(() =>
+            {
+                if (_searchPanel == null || _treeSearch == null || _fontToolbar == null)
+                    return;
+                
+                int toolbarWidth = _fontToolbar.Width > 0 ? _fontToolbar.Width : _fontToolbar.PreferredSize.Width;
+                int totalMargin = _treeSearch.Margin.Horizontal + _fontToolbar.Margin.Horizontal;
+                int availableWidth = _searchPanel.ClientSize.Width - toolbarWidth - _searchPanel.Padding.Horizontal - totalMargin;
+
+                int searchWidth = Math.Max(100, availableWidth);
+
+                if (_treeSearch.Width != searchWidth && searchWidth > 0)
+                {
+                    _treeSearch.Width = searchWidth;
+                }
+            }));
         }
 
         private void SetFilter(string filter)
