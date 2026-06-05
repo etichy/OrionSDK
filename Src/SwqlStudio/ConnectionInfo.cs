@@ -39,6 +39,17 @@ namespace SwqlStudio
             QueryParameters = new PropertyBag();
         }
 
+        internal ConnectionInfo(string server, string username, InfoServiceBase infoService)
+        {
+            ServerType = infoService.ServiceType;
+            _server = server;
+            _username = username;
+            _password = string.Empty;
+
+            _infoServiceType = infoService;
+            QueryParameters = new PropertyBag();
+        }
+
         public Binding Binding
         {
             get { return _infoServiceType.Binding; }
@@ -105,7 +116,8 @@ namespace SwqlStudio
                     new ServerType { Type = "Orion (v3) AD", IsAuthenticationRequired = false },
                     new ServerType { Type = "Orion (v3) Certificate", IsAuthenticationRequired = false },
                     new ServerType { Type = "Orion (v3) over HTTPS", IsAuthenticationRequired = true },
-                    new ServerType { Type = "Orion (v3) over HTTPS legacy pre-2023", IsAuthenticationRequired = true}
+                    new ServerType { Type = "Orion (v3) over HTTPS legacy pre-2023", IsAuthenticationRequired = true },
+                    new ServerType { Type = "Orion (v3) OAuth", IsAuthenticationRequired = false }
                 };
 
                 if (Settings.Default.ShowCompressedModes)
@@ -367,6 +379,12 @@ namespace SwqlStudio
 
         internal ConnectionInfo Copy()
         {
+            // OAuth connections carry a live token manager that cannot be reconstructed
+            // from the service-type string alone — use the constructor that accepts the
+            // existing InfoServiceBase so the token is preserved across reconnects/copies.
+            if (_infoServiceType is OrionOAuthInfoService)
+                return new ConnectionInfo(_server, _username, _infoServiceType) { QueryParameters = QueryParameters };
+
             return new ConnectionInfo(_server, _username, _password, _infoServiceType.ServiceType)
             {
                 QueryParameters = QueryParameters
