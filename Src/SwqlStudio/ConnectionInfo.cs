@@ -200,7 +200,7 @@ namespace SwqlStudio
             XmlDocument tmpQueryPlan = null; // can't reference out parameter from closure
             XmlDocument tmpQueryStats = null; // can't reference out parameter from closure
 
-            DataTable result = DoWithExceptionTranslation(
+            DataTable result = ExecuteWithReAuth(
                 delegate
                     {
                         EnsureConnection();
@@ -224,6 +224,24 @@ namespace SwqlStudio
             queryPlan = tmpQueryPlan;
             queryStats = tmpQueryStats;
             return result;
+        }
+
+        private T ExecuteWithReAuth<T>(Func<T> action)
+        {
+            try
+            {
+                return DoWithExceptionTranslation(action);
+            }
+            catch (ApplicationException ex) when (_infoServiceType.TryReAuthenticate(ex))
+            {
+                if (_proxy != null)
+                {
+                    _proxy.Dispose();
+                    _proxy = null;
+                }
+                Connect();
+                return DoWithExceptionTranslation(action);
+            }
         }
 
         public static void DoWithExceptionTranslation(Action action)
@@ -296,14 +314,15 @@ namespace SwqlStudio
 
         public XmlDocument QueryXml(string query, out XmlDocument queryPlan, out List<ErrorMessage> errorMessages, out XmlDocument queryStats)
         {
-            EnsureConnection();
-            Message results;
+            Message results = null;
             errorMessages = null;
-
-            using (new SwisSettingsContext { DataProviderTimeout = TimeSpan.FromSeconds(30), ApplicationTag = "SWQL Studio", AppendErrors = true })
+            ExecuteWithReAuth<int>(delegate
             {
-                results = _proxy.Query(new QueryXmlRequest(query, QueryParameters));
-            }
+                EnsureConnection();
+                using (new SwisSettingsContext { DataProviderTimeout = TimeSpan.FromSeconds(30), ApplicationTag = "SWQL Studio", AppendErrors = true })
+                    results = _proxy.Query(new QueryXmlRequest(query, QueryParameters));
+                return 0;
+            });
 
             XmlReader reader = results.GetReaderAtBodyContents();
             var body = new XmlDocument(reader.NameTable);

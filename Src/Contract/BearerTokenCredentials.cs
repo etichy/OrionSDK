@@ -16,8 +16,13 @@ namespace SolarWinds.InformationService.Contract2
 
         public override void ApplyTo(ChannelFactory channelFactory)
         {
-            // Only add the bearer token behavior — do NOT touch channelFactory.Credentials.*
-            // Setting built-in WCF credential slots alongside a Bearer header causes dual auth.
+            // Strip DnsEndpointIdentity so WCF does not attempt Kerberos/SPNEGO
+            // identity verification against the server certificate CN.
+            channelFactory.Endpoint.Address = new EndpointAddress(channelFactory.Endpoint.Address.Uri);
+
+            // Inject the Bearer token via a message inspector — do NOT set
+            // channelFactory.Credentials.UserName, which would cause WCF to require
+            // a username and send a Basic Authorization header on top of ours.
             channelFactory.Endpoint.EndpointBehaviors.Add(new BearerTokenBehavior(_tokenProvider));
         }
     }

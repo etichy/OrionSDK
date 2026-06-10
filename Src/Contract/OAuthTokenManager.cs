@@ -144,7 +144,7 @@ namespace SolarWinds.InformationService.Contract2
                 return _accessToken;
 
             if (_refreshToken == null)
-                throw new ApplicationException("Session token expired. Please reconnect to continue.");
+                throw new OAuthSessionExpiredException();
 
             // Serialize concurrent refreshes so only one thread hits the token endpoint.
             // Uses Task.Run to avoid blocking a captured SynchronizationContext (e.g. the

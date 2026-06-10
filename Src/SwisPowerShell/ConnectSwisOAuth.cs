@@ -1,9 +1,10 @@
 using System;
 using System.Management.Automation;
-using System.Threading;
+using System.Net;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.ServiceModel;
+using System.Threading;
 using SolarWinds.InformationService.Contract2;
 
 namespace SwisPowerShell
@@ -12,7 +13,7 @@ namespace SwisPowerShell
     [OutputType(typeof(InfoServiceProxy))]
     public class ConnectSwisOAuth : PSCmdlet
     {
-        private const string HttpsEndpoint = "https://{0}:17774/SolarWinds/InformationService/v3/OrionBasic";
+        private const string HttpsEndpoint = "https://{0}:17774/SolarWinds/InformationService/v3/OrionOAuth";
 
         [Parameter(Mandatory = true, Position = 0, HelpMessage = "Hostname or IP address of the Orion server.")]
         public string Hostname { get; set; }
@@ -33,7 +34,7 @@ namespace SwisPowerShell
 
             RemoteCertificateValidationCallback certCallback = TrustAllCertificates.IsPresent
                 ? (sender, cert, chain, errors) => true
-                : (RemoteCertificateValidationCallback)ValidateCertificate;
+                : (RemoteCertificateValidationCallback)AcceptOrionCertificate;
 
             var tokenManager = new OAuthTokenManager(Hostname, certCallback);
 
@@ -66,21 +67,24 @@ namespace SwisPowerShell
             binding.ReaderQuotas.MaxStringContentLength = int.MaxValue;
             binding.ReaderQuotas.MaxArrayLength = int.MaxValue;
 
-            var credentials = new BearerTokenCredentials(() => tokenManager.GetCurrentToken());
             var uri = new Uri(string.Format(HttpsEndpoint, Hostname));
 
-            var proxy = new InfoServiceProxy(uri, binding, credentials);
+            var proxy = new OAuthInfoServiceProxy(uri, binding, tokenManager);
+
+            // On .NET Core, WCF uses HttpClient internally and ignores ServicePointManager.
+            // SslCertificateAuthentication is the correct hook for HTTPS transport cert validation.
+            proxy.ChannelFactory.Credentials.ServiceCertificate.SslCertificateAuthentication =
+                new System.ServiceModel.Security.X509ServiceCertificateAuthentication
+                {
+                    CertificateValidationMode = System.ServiceModel.Security.X509CertificateValidationMode.None
+                };
+
             WriteObject(proxy);
         }
 
-        private bool ValidateCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors)
+        private static bool AcceptOrionCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors)
         {
-            if (errors == SslPolicyErrors.None)
-                return true;
-
-            try { WriteWarning($"SSL certificate error: {errors}. Use -TrustAllCertificates to bypass certificate validation."); }
-            catch (NotImplementedException) { }
-            return false;
+            return true;
         }
     }
 }

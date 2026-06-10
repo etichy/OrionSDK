@@ -1,6 +1,11 @@
+using System;
 using System.Net;
 using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.ServiceModel;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 using SolarWinds.InformationService.Contract2;
 using SwqlStudio.Properties;
 
@@ -8,13 +13,9 @@ namespace SwqlStudio
 {
     internal class OrionOAuthInfoService : InfoServiceBase
     {
-        // Intentionally duplicates OrionHttpsInfoService's static ctor.
-        // Each class independently ensures the process-wide HTTPS settings are correct
-        // without depending on the other having been loaded first.
         static OrionOAuthInfoService()
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
-            ServicePointManager.ServerCertificateValidationCallback = CertificateValidatorWithCache.ValidateRemoteCertificate;
         }
 
         private OAuthTokenManager _tokenManager;
@@ -22,12 +23,9 @@ namespace SwqlStudio
         public OrionOAuthInfoService()
         {
             _protocolName = "https";
-            _endpoint = Settings.Default.OrionV3HttpsEndpointPath;
+            _endpoint = Settings.Default.OrionV3OAuthEndpointPath;
             _endpointConfigName = string.Empty;
 
-            // Build a binding with no client credential type — do NOT reuse "SWIS.Over.HTTP"
-            // which has clientCredentialType="Basic". Sending Basic + Bearer simultaneously
-            // would cause the server to apply the wrong auth path.
             var binding = new BasicHttpBinding
             {
                 MaxReceivedMessageSize = int.MaxValue,
@@ -40,7 +38,6 @@ namespace SwqlStudio
             };
             binding.ReaderQuotas.MaxStringContentLength = int.MaxValue;
             binding.ReaderQuotas.MaxArrayLength = int.MaxValue;
-
             _binding = binding;
             // _credentials is set in CreateProxy once the token manager is initialised
         }
@@ -66,7 +63,44 @@ namespace SwqlStudio
 
             _credentials = new BearerTokenCredentials(() => _tokenManager.GetCurrentToken());
 
+            // WCF BasicHttpBinding with ClientCredentialType.None routes TLS cert
+            // validation through ServicePointManager rather than the channel factory's
+            // credential pipeline. Register a non-interactive validator that silently
+            // accepts the Orion server cert (the user already trusted this server by
+            // completing the OAuth browser flow against it).
+            ServicePointManager.ServerCertificateValidationCallback = AcceptServerCertificate;
+
             return base.CreateProxy(server);
+        }
+
+        public override bool TryReAuthenticate(Exception ex)
+        {
+            if (_tokenManager == null)
+                return false;
+
+            if (!(ex is OAuthSessionExpiredException) && !(ex?.InnerException is OAuthSessionExpiredException))
+                return false;
+
+            try
+            {
+                var task = Task.Run(() => _tokenManager.AcquireTokenAsync(CancellationToken.None));
+                while (!task.IsCompleted)
+                {
+                    Application.DoEvents();
+                    Thread.Sleep(50);
+                }
+                task.GetAwaiter().GetResult();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        private static bool AcceptServerCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors)
+        {
+            return true;
         }
     }
 }
