@@ -17,10 +17,9 @@ namespace SolarWinds.InformationService.Contract2
 {
     public class OAuthTokenManager
     {
-        private const string ClientId = "swql_studio";
-
         private static readonly string[] Scopes = { "swis" };
 
+        private readonly string _clientId;
         private readonly string _server;
         private readonly RemoteCertificateValidationCallback _certValidator;
         private readonly SemaphoreSlim _refreshLock = new SemaphoreSlim(1, 1);
@@ -34,7 +33,7 @@ namespace SolarWinds.InformationService.Contract2
         private string AuthorizeUrl => $"https://{_server}/oauth/authorize";
         private string TokenUrl => $"https://{_server}/oauth/token";
 
-        public OAuthTokenManager(string server, RemoteCertificateValidationCallback certValidator = null)
+        public OAuthTokenManager(string server, RemoteCertificateValidationCallback certValidator = null, string clientId = "swql_studio")
         {
             if (string.IsNullOrWhiteSpace(server))
                 throw new ArgumentNullException(nameof(server));
@@ -50,6 +49,7 @@ namespace SolarWinds.InformationService.Contract2
 
             _server = server;
             _certValidator = certValidator;
+            _clientId = clientId;
         }
 
         public async Task AcquireTokenAsync(CancellationToken cancellationToken = default)
@@ -63,7 +63,7 @@ namespace SolarWinds.InformationService.Contract2
 
             string authUrl = AuthorizeUrl
                 + "?response_type=code"
-                + "&client_id=" + Uri.EscapeDataString(ClientId)
+                + "&client_id=" + Uri.EscapeDataString(_clientId)
                 + "&redirect_uri=" + Uri.EscapeDataString(redirectUri)
                 + "&scope=" + Uri.EscapeDataString(string.Join(" ", Scopes))
                 + "&state=" + Uri.EscapeDataString(state)
@@ -183,7 +183,7 @@ namespace SolarWinds.InformationService.Contract2
             var parameters = new Dictionary<string, string>
             {
                 ["grant_type"] = "authorization_code",
-                ["client_id"] = ClientId,
+                ["client_id"] = _clientId,
                 ["code"] = code,
                 ["redirect_uri"] = redirectUri,
                 ["code_verifier"] = codeVerifier,
@@ -198,7 +198,7 @@ namespace SolarWinds.InformationService.Contract2
             var parameters = new Dictionary<string, string>
             {
                 ["grant_type"] = "refresh_token",
-                ["client_id"] = ClientId,
+                ["client_id"] = _clientId,
                 ["refresh_token"] = _refreshToken,
             };
 

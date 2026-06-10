@@ -36,7 +36,7 @@ namespace SwisPowerShell
                 ? (sender, cert, chain, errors) => true
                 : (RemoteCertificateValidationCallback)AcceptOrionCertificate;
 
-            var tokenManager = new OAuthTokenManager(Hostname, certCallback);
+            var tokenManager = new OAuthTokenManager(Hostname, certCallback, "orion_powershell");
 
             _cts = new CancellationTokenSource();
             try
