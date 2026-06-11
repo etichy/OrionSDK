@@ -17,7 +17,7 @@ namespace SolarWinds.InformationService.Contract2
 {
     public class OAuthTokenManager
     {
-        private static readonly string[] Scopes = { "swis" };
+        private static readonly string[] Scopes = { "swis", "offline_access" };
 
         private readonly string _clientId;
         private readonly string _server;
@@ -100,13 +100,6 @@ namespace SolarWinds.InformationService.Contract2
                         bool isCallback = query["code"] != null || query["error"] != null || query["state"] != null;
                         if (isCallback)
                         {
-                            byte[] successPage = Encoding.UTF8.GetBytes(
-                                "<html><body><h2>Authentication successful. You may close this tab.</h2></body></html>");
-                            context.Response.ContentType = "text/html";
-                            context.Response.ContentLength64 = successPage.Length;
-                            await context.Response.OutputStream.WriteAsync(successPage, 0, successPage.Length).ConfigureAwait(false);
-                            context.Response.Close();
-
                             error = query["error"];
                             errorDescription = query["error_description"];
 
@@ -119,6 +112,15 @@ namespace SolarWinds.InformationService.Contract2
                                 if (string.IsNullOrEmpty(code))
                                     throw new ApplicationException("OAuth authorization response did not contain a code.");
                             }
+
+                            string message = error == null
+                                ? "Authentication successful. You may close this tab."
+                                : $"Authentication failed: {System.Net.WebUtility.HtmlEncode(errorDescription ?? error)}";
+                            byte[] responsePage = Encoding.UTF8.GetBytes($"<html><body><h2>{message}</h2></body></html>");
+                            context.Response.ContentType = "text/html; charset=utf-8";
+                            context.Response.ContentLength64 = responsePage.Length;
+                            await context.Response.OutputStream.WriteAsync(responsePage, 0, responsePage.Length).ConfigureAwait(false);
+                            context.Response.Close();
                         }
                         else
                         {

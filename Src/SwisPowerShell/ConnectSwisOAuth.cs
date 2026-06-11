@@ -13,7 +13,7 @@ namespace SwisPowerShell
     [OutputType(typeof(InfoServiceProxy))]
     public class ConnectSwisOAuth : PSCmdlet
     {
-        private const string HttpsEndpoint = "https://{0}:17774/SolarWinds/InformationService/v3/OrionOAuth";
+        private const string HttpsEndpoint = "https://{0}:17774/SolarWinds/InformationService/v3/OAuth";
 
         [Parameter(Mandatory = true, Position = 0, HelpMessage = "Hostname or IP address of the Orion server.")]
         public string Hostname { get; set; }
@@ -36,7 +36,7 @@ namespace SwisPowerShell
                 ? (sender, cert, chain, errors) => true
                 : (RemoteCertificateValidationCallback)AcceptOrionCertificate;
 
-            var tokenManager = new OAuthTokenManager(Hostname, certCallback, "orion_powershell");
+            var tokenManager = new OAuthTokenManager(Hostname, certCallback, "swi_powershell_sdk");
 
             _cts = new CancellationTokenSource();
             try
