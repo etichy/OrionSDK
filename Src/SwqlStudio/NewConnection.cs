@@ -108,28 +108,28 @@ namespace SwqlStudio
         private void CheckIfUserCredentialsNecessary()
         {
             bool isOAuth = IsOAuthSelected;
-            bool requiresAuthentication = !isOAuth && (cmbServerType.SelectedItem as ServerType).IsAuthenticationRequired;
+            bool requiresCredentials = !isOAuth && (cmbServerType.SelectedItem as ServerType).IsAuthenticationRequired;
 
-            label3.Visible = !isOAuth;
-            label4.Visible = !isOAuth;
-            cmbUserName.Visible = !isOAuth;
-            tePassword.Visible = !isOAuth;
+            // Show credential fields only for non-OAuth connections.
+            bool showCredentials = !isOAuth;
+            label3.Visible = showCredentials;
+            label4.Visible = showCredentials;
+            cmbUserName.Visible = showCredentials;
+            tePassword.Visible = showCredentials;
             lblVersionNote.Visible = isOAuth;
-            if (isOAuth)            
-              lblVersionNote.Text= "2026.2.2 or later required";
 
-            cmbUserName.Enabled = requiresAuthentication;
-            tePassword.Enabled = requiresAuthentication;
+            // Enable credential fields only when the selected type requires authentication.
+            cmbUserName.Enabled = requiresCredentials;
+            tePassword.Enabled = requiresCredentials;
 
-            if (!isOAuth && !requiresAuthentication)
+            if (!requiresCredentials)
             {
                 cmbUserName.Text = string.Empty;
                 tePassword.Text = string.Empty;
             }
-            else if (!isOAuth && requiresAuthentication)
+            else if (ConnectionHistory.PreviousUserNames.Length > 0)
             {
-                if (ConnectionHistory.PreviousUserNames.Length > 0)
-                    cmbUserName.Text = ConnectionHistory.PreviousUserNames[0];
+                cmbUserName.Text = ConnectionHistory.PreviousUserNames[0];
             }
         }
     }
