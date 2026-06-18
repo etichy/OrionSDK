@@ -68,6 +68,9 @@ namespace SwqlStudio
                 _authenticatedOAuthUsername = _oauthInfoService.TokenManager.LastAccountUsername ?? string.Empty;
                 SaveHistory();
                 DialogResult = DialogResult.OK;
+
+                Win32.FlashUntilForeground(this);
+                Activate();
             }
             catch (OperationCanceledException)
             {
@@ -75,7 +78,10 @@ namespace SwqlStudio
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Authentication failed: " + ex.Message, "OAuth Error",
+                // User was in the browser during OAuth — bring the dialog back to attention.
+                Win32.FlashUntilForeground(this);
+                Activate();
+                MessageBox.Show(this, "Authentication failed: " + ex.Message, "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
@@ -108,6 +114,9 @@ namespace SwqlStudio
             label4.Visible = !isOAuth;
             cmbUserName.Visible = !isOAuth;
             tePassword.Visible = !isOAuth;
+            lblVersionNote.Visible = isOAuth;
+            if (isOAuth)            
+              lblVersionNote.Text= "2026.2.2 or later required";
 
             cmbUserName.Enabled = requiresAuthentication;
             tePassword.Enabled = requiresAuthentication;

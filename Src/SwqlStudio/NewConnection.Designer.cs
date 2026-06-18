@@ -39,6 +39,7 @@ namespace SwqlStudio
             this.cmbUserName = new System.Windows.Forms.ComboBox();
             this.tePassword = new System.Windows.Forms.TextBox();
             this.cbRememberPassword = new System.Windows.Forms.CheckBox();
+            this.lblVersionNote = new System.Windows.Forms.Label();
             this.SuspendLayout();
             //
             // connectButton
@@ -142,6 +143,16 @@ namespace SwqlStudio
             this.cbRememberPassword.UseVisualStyleBackColor = true;
             this.cbRememberPassword.Visible = false;
             //
+            // lblOAuthNote
+            //
+            this.lblVersionNote.AutoSize = true;
+            this.lblVersionNote.ForeColor = System.Drawing.SystemColors.GrayText;
+            this.lblVersionNote.Location = new System.Drawing.Point(12, 156);
+            this.lblVersionNote.Name = "lblOAuthNote";
+            this.lblVersionNote.TabIndex = 11;
+            this.lblVersionNote.Text = "";
+            this.lblVersionNote.Visible = false;
+            //
             // NewConnection
             //
             this.AcceptButton = this.connectButton;
@@ -160,6 +171,7 @@ namespace SwqlStudio
             this.Controls.Add(this.label1);
             this.Controls.Add(this.cancelButton);
             this.Controls.Add(this.connectButton);
+            this.Controls.Add(this.lblVersionNote);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
@@ -185,5 +197,6 @@ namespace SwqlStudio
         private System.Windows.Forms.ComboBox cmbUserName;
         private System.Windows.Forms.TextBox tePassword;
         private System.Windows.Forms.CheckBox cbRememberPassword;
+        private System.Windows.Forms.Label lblVersionNote;
     }
 }
